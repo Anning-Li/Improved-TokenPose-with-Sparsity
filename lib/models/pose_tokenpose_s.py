@@ -31,7 +31,7 @@ class TokenPose_S(nn.Module):
 
         print(cfg.MODEL)
         ##################################################
-        self.features = TokenPose_S_base(image_size=[cfg.MODEL.IMAGE_SIZE[1],cfg.MODEL.IMAGE_SIZE[0]],patch_size=[cfg.MODEL.PATCH_SIZE[1],cfg.MODEL.PATCH_SIZE[0]],
+        self.features = TokenPose_S_base(image_size=[joint_mask, cfg.MODEL.IMAGE_SIZE[1],cfg.MODEL.IMAGE_SIZE[0]],patch_size=[cfg.MODEL.PATCH_SIZE[1],cfg.MODEL.PATCH_SIZE[0]],
                                  num_keypoints = cfg.MODEL.NUM_JOINTS,dim =cfg.MODEL.DIM,
                                  channels=256,
                                  depth=cfg.MODEL.TRANSFORMER_DEPTH,heads=cfg.MODEL.TRANSFORMER_HEADS,

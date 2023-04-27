@@ -12,14 +12,14 @@ PRINT_FREQ: 100
 
 DATASET:
   COLOR_RGB: true
-  DATASET: mpii
+  DATASET: 'mpii'
   DATA_FORMAT: jpg
   FLIP: true
   NUM_JOINTS_HALF_BODY: 8
-  PROB_HALF_BODY: 0.3
-  ROOT: '/content/sample_data/images'
-  ROT_FACTOR: 45
-  SCALE_FACTOR: 0.35
+  PROB_HALF_BODY: -1.0
+  ROOT: '/data/'
+  ROT_FACTOR: 30
+  SCALE_FACTOR: 0.25
   TEST_SET: test
   TRAIN_SET: train
 MODEL:
@@ -33,7 +33,7 @@ MODEL:
   TRANSFORMER_MLP_RATIO: 3
   POS_EMBEDDING_TYPE: 'sine-full'
   INIT: true
-  DIM: 192 # 4*4*3
+  DIM: 256 # 4*4*3
   PATCH_SIZE:
   - 4
   - 4
@@ -64,8 +64,21 @@ MODEL:
       - 4
       - 4
       NUM_CHANNELS:
-      - 48
-      - 96
+      - 32
+      - 64
+      FUSE_METHOD: SUM
+    STAGE3:
+      NUM_MODULES: 4
+      NUM_BRANCHES: 3
+      BLOCK: BASIC
+      NUM_BLOCKS:
+      - 4
+      - 4
+      - 4
+      NUM_CHANNELS:
+      - 32
+      - 64
+      - 128
       FUSE_METHOD: SUM
 LOSS:
   USE_TARGET_WEIGHT: true

@@ -4,7 +4,7 @@ CUDNN:
   DETERMINISTIC: false
   ENABLED: true
 DATA_DIR: ''
-GPUS: (0,1)
+GPUS: (0,1,2,3,4)
 OUTPUT_DIR: 'output'
 LOG_DIR: 'log'
 WORKERS: 24
@@ -20,7 +20,7 @@ DATASET:
   ROOT: '/data/'
   ROT_FACTOR: 30
   SCALE_FACTOR: 0.25
-  TEST_SET: test
+  TEST_SET: valid
   TRAIN_SET: train
 MODEL:
   INIT_WEIGHTS: true

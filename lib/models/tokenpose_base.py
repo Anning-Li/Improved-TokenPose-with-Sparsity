@@ -89,25 +89,17 @@ class Attention_w_mask(nn.Module):
         # >>>>>>>>>>>>>>>>>>>>>>>>>>>> attention prune >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
         if attn_prune:
             n1 = n - J  # n1 = HW
-            
             num_keep_attn = math.ceil(n1 * attn_keep_ratio)  # HW * attn_keep_ratio
-            
             dots1 = dots.softmax(dim = -1)
             vis_attn = dots1.sum(1)[:,J:,J:]
-            
-        
-            top_val, _ = vis_attn.topk(dim=2, k=num_keep_attn)  # (B, HW, HW * attn_keep_ratio)
-            
+            top_val, _ = vis_attn.topk(dim=2, k=num_keep_attn)  # (B, HW, HW * attn_keep_ratio) 
             tmp_mask = top_val[:, :, -1].unsqueeze(-1).expand(-1, -1, n1)
-            mask_img = (vis_attn >= tmp_mask) + 0        # （B, rN, rN） without gradient     0/1 mask
-            
+            mask_img = (vis_attn >= tmp_mask) + 0        # （B, rN, rN） without gradient     0/1 mask 
             mask = torch.ones(b, n, n).to(x.device)  # (B, J+HW, J+HW)
             mask[:, J:, J:] = mask_img  # attn_mask(B, HW, HW)
         # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-        print('dots = ',dots.shape)
-        print('mask = ',mask.shape)
+
         attn = dots * mask.unsqueeze(1)
-        
         max_att = torch.max(attn, dim=-1, keepdim=True)[0]
         attn = attn - max_att
 
@@ -317,13 +309,10 @@ class TokenPose_S_base(nn.Module):
 
         # transformer
         # initialize attention mask all 1
-        print('x.shape = ' , x.shape)
         b,n,_ = x.shape
         attn_mask = torch.ones(b, n, n).to(x.device)
-        print('attn_mask.shape = ' , attn_mask.shape)
         
         x = self.transformer(x, mask=attn_mask)
-        print(1)
         joint_mask = repeat(self.joint_mask, '() n d -> b n d', b=b)
         
         x = self.to_keypoint_token(x[:, 0:self.num_keypoints])

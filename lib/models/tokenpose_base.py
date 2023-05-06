@@ -11,11 +11,10 @@ MIN_NUM_PATCHES = 16
 BN_MOMENTUM = 0.1
 
 
-class Residual(nn.Module):  # residual block
+class Residual(nn.Module):
     def __init__(self, fn):
         super().__init__()
         self.fn = fn
-
     def forward(self, x, **kwargs):
         return self.fn(x, **kwargs) + x
 
@@ -25,7 +24,6 @@ class PreNorm(nn.Module):
         super().__init__()
         self.norm = nn.LayerNorm(dim * fusion_factor)
         self.fn = fn
-
     def forward(self, x, **kwargs):
         return self.fn(self.norm(x), **kwargs)
 
@@ -54,7 +52,6 @@ class Mlp(nn.Module):
         self.act = act_layer()
         self.fc2 = nn.Linear(hidden_features, out_features)
         self.drop = nn.Dropout(drop)
-
     def forward(self, x):
         x = self.fc1(x)
         x = self.act(x)
@@ -77,7 +74,7 @@ class Attention_w_mask(nn.Module):
         )
         self.num_keypoints = num_keypoints
 
-    def forward(self, x, mask, attn_keep_ratio=0.001, attn_prune=False):
+    def forward(self, x, mask, attn_keep_ratio=1.0, attn_prune=False):
         # attn_mask: (B, J+HW, J+HW) input-dependent
         eps = 1e-6
         b, n, m, h = *x.shape, self.heads
@@ -100,16 +97,10 @@ class Attention_w_mask(nn.Module):
         # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
         attn = dots * mask.unsqueeze(1)
-        max_att = torch.max(attn, dim=-1, keepdim=True)[0]
-        attn = attn - max_att
-
-        #attn = attn.to(torch.float32).exp_() * mask.unsqueeze(1).to(torch.float32)     # (B, H, N+1, N+1)
-        #attn = (attn + eps/N) / (attn.sum(dim=-1, keepdim=True) + eps)
-        #attn = dots.softmax(dim=-1)
         
-        #out = torch.einsum('bhij,bhjd->bhid', attn, v)
-        out = torch.matmul(attn, v)
+        out = torch.einsum('bhij,bhjd->bhid', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
+        
         out = self.to_out(out)
         return out
 
@@ -118,23 +109,20 @@ class Transformer(nn.Module):
     def __init__(self, dim, depth, heads, mlp_dim, dropout, mask,
                  embed_dim=768, num_keypoints=None, all_attn=False, scale_with_head=False):
         super().__init__()
-
         self.layers = nn.ModuleList([])
         self.all_attn = all_attn
         self.num_keypoints = num_keypoints
         self.pruning_loc = [3, 6, 9]  # [3, 6, 9]
-
         self.norm = nn.LayerNorm(embed_dim)
         self.pre_logits = nn.Identity()
 
         for _ in range(depth):
             self.layers.append(nn.ModuleList([
-                Residual(PreNorm(dim, Attention_w_mask(dim, mask=mask, heads=heads, dropout=dropout,
-                                                       num_keypoints=num_keypoints, scale_with_head=scale_with_head))),
+                Residual(PreNorm(dim, Attention_w_mask(dim, mask=mask, heads=heads, dropout=dropout, num_keypoints=num_keypoints, scale_with_head=scale_with_head))),
                 Residual(PreNorm(dim, FeedForward(dim, mlp_dim, dropout=dropout)))
             ]))
 
-    def forward(self, x, mask, pos=None):
+    def forward(self, x, mask = None, pos=None):
         B, N, C = x.shape
         # Transformer Block >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
         # mask represents attn_mask & joint_mask
@@ -311,11 +299,11 @@ class TokenPose_S_base(nn.Module):
         # initialize attention mask all 1
         b,n,_ = x.shape
         attn_mask = torch.ones(b, n, n).to(x.device)
-        
         x = self.transformer(x, mask=attn_mask)
-        joint_mask = repeat(self.joint_mask, '() n d -> b n d', b=b)
         
+        joint_mask = repeat(self.joint_mask, '() n d -> b n d', b=b)
         x = self.to_keypoint_token(x[:, 0:self.num_keypoints])
+    
         x = self.joint_transformer(x, mask=joint_mask)
 
         x = self.mlp_head(x)

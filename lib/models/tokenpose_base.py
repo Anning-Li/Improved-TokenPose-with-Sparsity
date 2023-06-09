@@ -16,7 +16,11 @@ class Residual(nn.Module):
         super().__init__()
         self.fn = fn
     def forward(self, x, **kwargs):
-        return self.fn(x, **kwargs) + x
+        tmp = self.fn(x, **kwargs)
+        if isinstance(tmp,list):
+            return [tmp[0] + x, tmp[1]]
+        else:
+            return tmp + x
 
 
 class PreNorm(nn.Module):
@@ -61,82 +65,90 @@ class Mlp(nn.Module):
         return x
 
 
-class Attention_w_mask(nn.Module):
+class Attention(nn.Module):
     def __init__(self, dim, mask, heads=8, dropout=0., num_keypoints=None, scale_with_head=False):
         super().__init__()
+        
         self.mask = mask
         self.heads = heads
         self.scale = (dim // heads) ** -0.5 if scale_with_head else dim ** -0.5
+        
         self.to_qkv = nn.Linear(dim, dim * 3, bias=False)
         self.to_out = nn.Sequential(
             nn.Linear(dim, dim),
             nn.Dropout(dropout)
         )
-        self.num_keypoints = num_keypoints
-
-    def forward(self, x, mask, attn_keep_ratio=1.0, attn_prune=False):
-        # attn_mask: (B, J+HW, J+HW) input-dependent
+        self.num_keypoints = num_keypoints    
+        
+    def forward(self, x, mask = None):
         eps = 1e-6
-        b, n, m, h = *x.shape, self.heads
-        J = self.num_keypoints
-        qkv = self.to_qkv(x).chunk(3, dim=-1)
-        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=h), qkv) 
-        
-        dots = torch.einsum('bhid,bhjd->bhij', q, k) * self.scale
-        # >>>>>>>>>>>>>>>>>>>>>>>>>>>> attention prune >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        if attn_prune:
-            n1 = n - J  # n1 = HW
-            num_keep_attn = math.ceil(n1 * attn_keep_ratio)  # HW * attn_keep_ratio
-            dots1 = dots.softmax(dim = -1)
-            vis_attn = dots1.sum(1)[:,J:,J:]
-            top_val, _ = vis_attn.topk(dim=2, k=num_keep_attn)  # (B, HW, HW * attn_keep_ratio) 
-            tmp_mask = top_val[:, :, -1].unsqueeze(-1).expand(-1, -1, n1)
-            mask_img = (vis_attn >= tmp_mask) + 0        # （B, rN, rN） without gradient     0/1 mask 
-            mask = torch.ones(b, n, n).to(x.device)  # (B, J+HW, J+HW)
-            mask[:, J:, J:] = mask_img  # attn_mask(B, HW, HW)
-        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        b, n, _, h = *x.shape, self.heads
+        qkv = self.to_qkv(x).chunk(3, dim = -1)
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = h), qkv)
 
-        attn = dots * mask.unsqueeze(1)
+        dots = torch.einsum('bhid,bhjd->bhij', q, k) * self.scale
         
+        # attention level pruning>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        max_dots = torch.max(dots, dim=-1, keepdim=True)[0]
+        dots = dots - max_dots        
+        
+        attn = dots.to(torch.float32).exp_() * mask.unsqueeze(1).to(torch.float32)     # (B, H, N+1, N+1)
+        attn = (dots + eps/n) / (dots.sum(dim=-1, keepdim=True) + eps)          # (B, H, N+1, N+1)
+        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
         out = torch.einsum('bhij,bhjd->bhid', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
+
+        out =  self.to_out(out)
         
-        out = self.to_out(out)
-        return out
+        return [out, attn]
 
 
 class Transformer(nn.Module):
-    def __init__(self, dim, depth, heads, mlp_dim, dropout, mask,
-                 embed_dim=768, num_keypoints=None, all_attn=False, scale_with_head=False):
+    def __init__(self, dim, depth, heads, mlp_dim, dropout, mask, embed_dim=768, num_keypoints=None, all_attn=False, scale_with_head=False):
         super().__init__()
         self.layers = nn.ModuleList([])
         self.all_attn = all_attn
         self.num_keypoints = num_keypoints
-        self.pruning_loc = [3, 6, 9]  # [3, 6, 9]
+        self.pruning_loc = [3, 6, 9]
         self.norm = nn.LayerNorm(embed_dim)
         self.pre_logits = nn.Identity()
-
+            
         for _ in range(depth):
             self.layers.append(nn.ModuleList([
-                Residual(PreNorm(dim, Attention_w_mask(dim, mask=mask, heads=heads, dropout=dropout, num_keypoints=num_keypoints, scale_with_head=scale_with_head))),
-                Residual(PreNorm(dim, FeedForward(dim, mlp_dim, dropout=dropout)))
+                Residual(PreNorm(dim, Attention(dim, mask, heads=heads, dropout=dropout, 
+                                                num_keypoints=num_keypoints, scale_with_head=scale_with_head))),     
+                Residual(PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout)))
             ]))
 
-    def forward(self, x, mask = None, pos=None):
+    def forward(self, x, mask = None, attn_keep_ratio=0.2, pos=None):
         B, N, C = x.shape
+        J = self.num_keypoints
         # Transformer Block >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        # mask represents attn_mask & joint_mask
         for idx, (attn, ff) in enumerate(self.layers):
+            x, attns = attn(x, mask = mask)
+            
             if idx in self.pruning_loc:  # i = 3, 6, 9
-                x = attn(x, attn_prune=True, mask=mask)
-            else:
-                x = attn(x, attn_prune=False, mask=mask)
+                # update mask
+                n1 = N - J  # n1 = HW
+                num_keep_attn = math.ceil(n1 * attn_keep_ratio)  # HW * attn_keep_ratio
+                
+                vis_attn = attns.sum(1)[:,J:,J:]
+                
+                top_val, _ = vis_attn.topk(dim=2, k=num_keep_attn)  # (B, HW, HW * attn_keep_ratio) 
+                tmp_mask = top_val[:, :, -1].unsqueeze(-1).expand(-1, -1, n1)
+                mask_img = (vis_attn >= tmp_mask) + 0        # 0/1 mask 
+    
+                mask = torch.ones(B, N, N).to(x.device)  # (B, J+HW, J+HW)
+                mask[:, J:, J:] = mask_img  # attn_mask(B, HW, HW)
+
             x = ff(x)
+            
         return x
-
-
+    
+            
 class TokenPose_S_base(nn.Module):
-    def __init__(self, *, image_size, patch_size, num_keypoints, dim, depth, heads, mlp_dim, joint_mask,
+    def __init__(self, *, image_size, patch_size, num_keypoints, dim, depth, heads, mlp_dim, joint_mask, 
                  apply_init=False,
                  apply_multi=True, hidden_heatmap_dim=64 * 6, heatmap_dim=64 * 48, heatmap_size=[64, 48], channels=3,
                  dropout=0., emb_dropout=0., pos_embedding_type="learnable"):
@@ -176,10 +188,9 @@ class TokenPose_S_base(nn.Module):
         self.layer1 = self._make_layer(Bottleneck, 64, 4)
 
         # transformer
-        self.transformer = Transformer(dim, depth, heads, mlp_dim, dropout, num_keypoints=num_keypoints, mask=None,
-                                       all_attn=self.all_attn)
-        self.joint_transformer = Transformer(dim, 3, heads, mlp_dim, dropout, num_keypoints=num_keypoints,mask=None,
-                                             all_attn=self.all_attn)
+        
+        self.transformer = Transformer(dim, depth, heads, mlp_dim, dropout, num_keypoints=num_keypoints, mask=None, all_attn=self.all_attn)
+        self.joint_transformer = Transformer(dim, 3, heads, mlp_dim, dropout, num_keypoints=num_keypoints,mask=None, all_attn=self.all_attn)
         self.to_keypoint_token = nn.Identity()
 
         self.mlp_head = nn.Sequential(
@@ -268,7 +279,7 @@ class TokenPose_S_base(nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
-    def forward(self, img, joint_mask=None):
+    def forward(self, img, mask=None):
         p = self.patch_size
         # stem net
         x = self.conv1(img)
@@ -309,7 +320,6 @@ class TokenPose_S_base(nn.Module):
         x = self.mlp_head(x)
         x = rearrange(x, 'b c (p1 p2) -> b c p1 p2', p1=self.heatmap_size[0], p2=self.heatmap_size[1])
         return x
-
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -476,7 +486,11 @@ class TokenPose_TB_base(nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
-    def forward(self, feature, joint_mask, mask=None):
+    def forward(self, feature,
+                
+                
+                
+                mask=None):
         p = self.patch_size
         # transformer
         x = rearrange(feature, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=p[0], p2=p[1])
@@ -495,7 +509,7 @@ class TokenPose_TB_base(nn.Module):
 
         mask = torch.ones(b, n, n).to(x.device)
         x = self.transformer(x, self.pos_embedding, mask=mask)
-        x = self.joint_transformer(x, self.pos_embedding, mask=joint_mask)
+        #x = self.joint_transformer(x, self.pos_embedding, mask=joint_mask)
 
         x = self.to_keypoint_token(x[:, 0:self.num_keypoints])
         x = self.mlp_head(x)

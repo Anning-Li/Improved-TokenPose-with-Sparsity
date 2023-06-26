@@ -15,11 +15,7 @@ The contributions of this work are summarized as follows:
 ## 1. Dependencies installation & data preparation
 Please refer to [THIS](https://github.com/leoxiaobin/deep-high-resolution-net.pytorch) to prepare the environment step by step.
 
-## 2. Trainging
-### Training on COCO train2017 dataset 
-```
-python tools/train.py \
-    --cfg experiments/coco/tokenpose/tokenpose_L_D24_256_192_patch43_dim192_depth24_heads12.yaml\
+## 2. Traingingss
 ```
 ### Training on MPII dataset 
 ```

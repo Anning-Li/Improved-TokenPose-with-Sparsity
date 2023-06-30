@@ -5,7 +5,7 @@ from torch import nn
 import math
 from timm.models.layers.weight_init import trunc_normal_
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
-from collections import OrderedDict
+from collections import OrderedDicts
 
 MIN_NUM_PATCHES = 16
 BN_MOMENTUM = 0.1
@@ -80,8 +80,11 @@ class Attention(nn.Module):
         )
         self.num_keypoints = num_keypoints    
         
+
+        
     def forward(self, x, mask = None):
         eps = 1e-6
+        J = self.num_keypoints
         b, n, _, h = *x.shape, self.heads
         qkv = self.to_qkv(x).chunk(3, dim = -1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = h), qkv)
@@ -95,12 +98,10 @@ class Attention(nn.Module):
         attn = dots.to(torch.float32).exp_() * mask.unsqueeze(1).to(torch.float32)     # (B, H, N+1, N+1)
         attn = (dots + eps/n) / (dots.sum(dim=-1, keepdim=True) + eps)          # (B, H, N+1, N+1)
         # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
+        
         out = torch.einsum('bhij,bhjd->bhid', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
-
-        out =  self.to_out(out)
-        
+        out =  self.to_out(out)         
         return [out, attn]
 
 
@@ -121,7 +122,7 @@ class Transformer(nn.Module):
                 Residual(PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout)))
             ]))
 
-    def forward(self, x, mask = None, attn_keep_ratio=0.2, pos=None):
+    def forward(self, x, mask = None, attn_keep_ratio=0.7, pos=None):
         B, N, C = x.shape
         J = self.num_keypoints
         # Transformer Block >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -142,8 +143,7 @@ class Transformer(nn.Module):
                 mask = torch.ones(B, N, N).to(x.device)  # (B, J+HW, J+HW)
                 mask[:, J:, J:] = mask_img  # attn_mask(B, HW, HW)
 
-            x = ff(x)
-            
+            x = ff(x)         
         return x
     
             
@@ -486,11 +486,7 @@ class TokenPose_TB_base(nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
-    def forward(self, feature,
-                
-                
-                
-                mask=None):
+    def forward(self, feature, mask=None):
         p = self.patch_size
         # transformer
         x = rearrange(feature, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=p[0], p2=p[1])

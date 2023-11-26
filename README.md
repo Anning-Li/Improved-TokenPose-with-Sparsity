@@ -3,9 +3,9 @@ In this paper, we propose a more efficient, yet accurate Transformer model based
  
 Our main contributions to the Improved TokenPose with Sparsity are summarized as follows:
 
-\item We propose an attention-based pruning strategy to dynamically upgrade a sparse attention mask. By focusing on the more significant visual tokens, we can simultaneously achieve both token and attention connections during training while making use of their sparsities. Our method does not require a complex token selector module or additional training loss or hyper-parameters.
-\item We propose a self-defined sparse joint mask based on human structure. With the use of graph degree, we can pre-define a 0-1 mask to emphasize the connections between adjacent joints and symmetrical joints. 
-\item We conduct extensive experiments on MPII dataset, and prove the feasibility of the method by experimental analysis.
+1. We propose an attention-based pruning strategy to dynamically upgrade a sparse attention mask. By focusing on the more significant visual tokens, we can simultaneously achieve both token and attention connections during training while making use of their sparsities. Our method does not require a complex token selector module or additional training loss or hyper-parameters.
+2. We propose a self-defined sparse joint mask based on human structure. With the use of graph degree, we can pre-define a 0-1 mask to emphasize the connections between adjacent joints and symmetrical joints.
+3. We conduct extensive experiments on MPII dataset, and prove the feasibility of the method by experimental analysis.
 
 # Quick use
 ## 1. Dependencies installation & data preparation

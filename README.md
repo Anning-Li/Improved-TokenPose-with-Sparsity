@@ -16,26 +16,16 @@ Please refer to [THIS](https://github.com/leoxiaobin/deep-high-resolution-net.py
 ### Training on MPII dataset 
 ```
 python tools/train.py \
-    --cfg experiments/mpii/tokenpose/tokenpose_l_D6_256x256_patch44_dim192_depth6.yaml\
+    --cfg experiments/mpii/tokenpose/tokenpose_s_v1_256_192_patch43_dim192_depth12_heads8.yaml\
 ```
 ## 3. Testing
 ### Testing on MPII dataset using TRAINED models
 ```
 python tools/test.py \
-    --cfg experiments/mpii/tokenpose/tokenpose_l_D6_256x256_patch44_dim192_depth6.yaml\
+    --cfg experiments/mpii/tokenpose/tokenpose_s_v1_256_192_patch43_dim192_depth12_heads8.yaml\
     TEST.MODEL_FILE _PATH_TO_CHECKPOINT_ 
 ```
 
-# Citations
-If you use our code or models in your research, please give it a star or cite with:
-```
-@inproceedings{li2021tokenpose,
-  title={TokenPose: Learning Keypoint Tokens for Human Pose Estimation},
-  author={Yanjie Li and Shoukui Zhang and Zhicheng Wang and Sen Yang and Wankou Yang and Shu-Tao Xia and Erjin Zhou},
-  booktitle={IEEE/CVF International Conference on Computer Vision (ICCV)},
-  year={2021}
-}
-```
 # Acknowledgement
 Thanks for the open-source:
 > [HRNet](https://github.com/leoxiaobin/deep-high-resolution-net.pytorch/), [timm](https://github.com/rwightman/pytorch-image-models), [DarkPose](https://github.com/ilovepose/DarkPose), [DETR](https://github.com/facebookresearch/detr)

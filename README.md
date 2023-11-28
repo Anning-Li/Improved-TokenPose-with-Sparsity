@@ -30,4 +30,4 @@ python tools/test.py \
 
 # Acknowledgement
 Thanks for the open-source:
-> [TokenPose](https://github.com/leeyegy/TokenPose), [HRNet](https://github.com/leoxiaobin/deep-high-resolution-net.pytorch/), [timm](https://github.com/rwightman/pytorch-image-models), [DarkPose](https://github.com/ilovepose/DarkPose), [DETR](https://github.com/facebookresearch/detr)]
+> [TokenPose](https://github.com/leeyegy/TokenPose), [HRNet](https://github.com/leoxiaobin/deep-high-resolution-net.pytorch/), [timm](https://github.com/rwightman/pytorch-image-models), [DarkPose](https://github.com/ilovepose/DarkPose), [DETR](https://github.com/facebookresearch/detr)

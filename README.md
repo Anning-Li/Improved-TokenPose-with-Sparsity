@@ -1,4 +1,5 @@
 # Introduction
+Link of the paper: [Improved TokenPose with Sparsity](https://doi.org/10.48550/arXiv.2311.09653)
 In this paper, we propose a more efficient, yet accurate Transformer model based on the TokenPose Transformer, named Improve TokenPose with Sparsity. Specifically, we focus on two types of sparse tokens, human-joint keypoint tokens, and attention-level visual tokens. On keypoint tokens, we refer to human physiological structures to strengthen the connection of relevant joints with a sparse joint mask. On visual tokens, we introduce sparsity at the attention level by pruning attention connections. We reveal that pruning these sparse tokens does not reduce the accuracy but can accelerate the entire network. 
 ![image](https://github.com/Anning-Li/Improved-TokenPose-with-Sparsity/blob/main/framework1%20(1).png)
 

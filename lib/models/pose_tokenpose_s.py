@@ -45,8 +45,7 @@ class TokenPose_S(nn.Module):
                                         [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0], #13
                                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1], #14
                                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1]]]) #15
-            
-        ##################################################
+
         self.features = TokenPose_S_base(image_size=[cfg.MODEL.IMAGE_SIZE[1], cfg.MODEL.IMAGE_SIZE[0]],
                                          patch_size=[cfg.MODEL.PATCH_SIZE[1], cfg.MODEL.PATCH_SIZE[0]],
                                          num_keypoints=cfg.MODEL.NUM_JOINTS, dim=cfg.MODEL.DIM,
@@ -60,7 +59,7 @@ class TokenPose_S(nn.Module):
                                          heatmap_size=[cfg.MODEL.HEATMAP_SIZE[1], cfg.MODEL.HEATMAP_SIZE[0]],
                                          pos_embedding_type=cfg.MODEL.POS_EMBEDDING_TYPE
                                          )
-        ###################################################3
+
 
     def forward(self, x):
         x = self.features(x)

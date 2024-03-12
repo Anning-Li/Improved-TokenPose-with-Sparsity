@@ -14,7 +14,7 @@ Our main contributions to the Improved TokenPose with Sparsity are summarized as
 ## 1. Dependencies installation & data preparation
 Please refer to [THIS](https://github.com/leoxiaobin/deep-high-resolution-net.pytorch) to prepare the environment step by step.
 
-## 2. Trainging
+## 2. Training
 ### Training on MPII dataset 
 ```
 python tools/train.py \

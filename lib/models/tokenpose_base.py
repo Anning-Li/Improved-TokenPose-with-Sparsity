@@ -84,7 +84,7 @@ class Attention(nn.Module):
         
     def forward(self, x, mask = None):
         eps = 1e-6
-        j = self.num_keypoints
+        J = self.num_keypoints
         b, n, _, h = *x.shape, self.heads
         qkv = self.to_qkv(x).chunk(3, dim = -1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = h), qkv)
